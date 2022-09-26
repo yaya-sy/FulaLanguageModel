@@ -41,12 +41,12 @@ class MultiHeadAttention(nn.Module):
         - q: Tensor
             The queries as a three dimension tensor of embedded sequences.
             The shape must be [b, s, e] where 'b' is the batch size,\
-            's' is the length of the sequence and 'e' the embedding dimension.
+            's' is the lengths of the sequences and 'e' the embedding dimension.
             
         - k: Tensor
             The keys as a three dimension tensor of embedded sequences.
             The shape must be [b, s, e] where 'b' is the batch size,\
-            's' is the length of the sequence and 'e' the embedding dimension.
+            's' is the lengths of the sequences and 'e' the embedding dimension.
 
         - v: Tensor
             The values as a three dimension tensor of embedded sequences.
