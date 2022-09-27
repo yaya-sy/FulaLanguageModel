@@ -1,11 +1,15 @@
+"""Implementation of one transformer layer."""
 # standard python imports
+import sys
+sys.path.append('.')
 from typing import Optional
-from .config.config import Config
+from scripts.config.config import Config
 
 # non standard python libraries imports
 import torch
 from torch import nn
 from torch import Tensor
+
 class MultiHeadAttention(nn.Module):
     """
     This class implements a multihead attention.
@@ -117,15 +121,15 @@ class TransformerLayer(nn.Module):
     def __init__(self, config):
         super().__init__()
         self.mha = MultiHeadAttention(config)
-        self.layer_norm1 = nn.LayerNorm(normalized_shape=config.embedd_dims)
+        self.layer_norm1 = nn.LayerNorm(normalized_shape=config.embedding_dims)
         self.mlp = nn.Sequential(
-            nn.Linear(in_features=config.embedd_dims, out_features=config.ff_size),
+            nn.Linear(in_features=config.embedding_dims, out_features=config.ff_size),
             nn.GELU(),
-            nn.Linear(in_features=config.ff_size, out_features=config.embedd_dims)
+            nn.Linear(in_features=config.ff_size, out_features=config.embedding_dims)
         )
 
         self.dropout_ff = nn.Dropout(p=config.dropout)
-        self.layer_norm2 = nn.LayerNorm(normalized_shape=config.embedd_dims)
+        self.layer_norm2 = nn.LayerNorm(normalized_shape=config.embedding_dims)
     
     def forward(self,
                 src: Tensor,

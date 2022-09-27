@@ -1,10 +1,12 @@
+"""This module implements a transformer encoder."""
 # native python packages imports
-from typing import Union
-from .config.config import Config
-from transformer_layer import TransformerLayer
+import sys
+sys.path.append('.')
+from typing import Optional
+from scripts.config.config import Config
+from scripts.model.transformer_layer import TransformerLayer
 
 # installed python packages imports
-import torch
 from torch import nn
 from torch import Tensor
 
@@ -21,22 +23,11 @@ class TransformerEncoder(nn.Module):
     """
     def __init__(self, config: Config):
         super().__init__()
-        self.transformers = nn.ModuleDict(
-            {
-                "w_embeddings" : nn.Embedding(num_embeddings=config.vocab_size,
-                                               embedding_dim=config.embedding_dims,
-                                               padding_idx=config.pad_idx),
-                "layers" : nn.ModuleList([TransformerLayer(config) for _ in range(config.layers)])
-            })
-        if config.add_positions:
-            self.transformers["p_embeddings"] = nn.Embedding(num_embeddings=config.max_length,
-                                                              embedding_dim=config.embedding_dims,
-                                                              padding_idx=config.pad_idx)
-        self.pad_idx: int = config.pad_idx
+        self.layers = nn.ModuleList([TransformerLayer(config) for _ in range(config.layers)])
 
     def forward(self,
                 src: Tensor,
-                mask_pad_idxs: bool=True,
+                keys_pad_mask: Optional[Tensor]=None,
                 mask_futur: bool=False
                 ) -> Tensor:
         """
@@ -66,19 +57,7 @@ class TransformerEncoder(nn.Module):
             embedding dimension. The output vectors represent the contextual\
             representation of the sequences across all the transformer layers.
         """
-        _, s = src.shape
-        device: str = src.device
 
-        pad_mask_true: bool = mask_pad_idxs and self.pad_idx is not None
-        pad_mask: Union[Tensor, None] = (src == self.pad_idx).to(device) if pad_mask_true else None
-
-        e = self.transformers.w_embeddings(src)
-
-        if "p_embeddings" in self.transformers:
-            positions = torch.arange(0, s, dtype=torch.long, device=device).unsqueeze(0)
-            p_embeddings = self.transformers.p_embeddings(positions)
-            e += p_embeddings
-
-        for transformer in self.transformers.layers:
-            e = transformer(e, e, keys_pad_mask=pad_mask, mask_futur=mask_futur)
-        return e
+        for transformer in self.layers:
+            src = transformer(src, src, keys_pad_mask=keys_pad_mask, mask_futur=mask_futur)
+        return src

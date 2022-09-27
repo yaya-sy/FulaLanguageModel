@@ -1,5 +1,13 @@
-from encoder import TransformerEncoder
+"""
+Implementation of a Transformer language model\
+by using the transformer encoder with masked next token.
+"""
+import sys
+sys.path.append('.')
+from typing import Union
+from scripts.model.encoder import TransformerEncoder
 
+import torch
 from torch import nn
 from torch import Tensor
 
@@ -18,8 +26,20 @@ class TransformerLM(nn.Module):
 
     def __init__(self, config):
         # decoder = encoder but with masked next tokens
-        self.decoder = TransformerEncoder(config=config)
-        self.linear = nn.Linear(config.embedding_dims, config.vocab_size)
+        super().__init__()
+        self.transformer_lm = nn.ModuleDict(
+            {
+                "w_embeddings" : nn.Embedding(num_embeddings=config.vocab_size,
+                                               embedding_dim=config.embedding_dims,
+                                               padding_idx=config.pad_idx),
+                "decoder" : TransformerEncoder(config=config),
+                "linear" : nn.Linear(config.embedding_dims, config.vocab_size),
+            })
+        if config.add_positions:
+            self.transformer_lm["p_embeddings"] = nn.Embedding(num_embeddings=config.max_length,
+                                                              embedding_dim=config.embedding_dims,
+                                                              padding_idx=config.pad_idx)
+        self.pad_idx: int = config.pad_idx
     
     def forward(self, x: Tensor) -> Tensor:
         """
@@ -31,6 +51,18 @@ class TransformerLM(nn.Module):
             The input sequences. Must be of shape [b, s] where 'b'\
             is the batch size, 's' the length of the sequences in the batch.
         """
+        _, s = x.shape
+        device: str = x.device
 
-        c = self.decoder(x)
-        return self.linear(c)
+        pad_mask_true: bool = self.pad_idx is not None
+        pad_mask: Union[Tensor, None] = (x == self.pad_idx).to(device) if pad_mask_true else None
+
+        e = self.transformer_lm.w_embeddings(x)
+
+        if "p_embeddings" in self.transformer_lm:
+            positions = torch.arange(0, s, dtype=torch.long, device=device).unsqueeze(0)
+            p_embeddings = self.transformer_lm.p_embeddings(positions)
+            e += p_embeddings
+
+        c = self.transformer_lm.decoder(e, keys_pad_mask=pad_mask, mask_futur=True)
+        return self.transformer_lm.linear(c)
