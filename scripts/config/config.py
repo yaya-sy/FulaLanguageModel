@@ -48,8 +48,10 @@ class Config:
         The batch size.
     - lr: float, int
         The learning rate.
-    - print_generation_steps
+    - print_generation_steps: int
         Print the generation every given steps (batchs)
+    - checkpoint: str
+        If given, the path to a given checkpoint of the model
     """
     vocab_size: int
     tokenizer: str
@@ -67,6 +69,7 @@ class Config:
     ff_size: int
     dropout: Union[int, float]
     print_generation_steps: int
+    checkpoint: Optional[str]
 
     def to_dict(self) -> Dict[str, Number]:
         """Will return all the parameters as a dictionnary."""

@@ -74,6 +74,10 @@ def main():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     LOGGER.info(f"Using device {device}")
     model.to(device)
+    if config.checkpoint is not None:
+        LOGGER.info(f"Loading checkpoint {config.checkpoint}")
+        model.load_state_dict(torch.load(config.checkpoint, 
+                                         map_location=torch.device(device)))
     LOGGER.info("Training ...")
     train(model=model,
           traingenerator=traingenerator,
