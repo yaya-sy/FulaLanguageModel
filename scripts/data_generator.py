@@ -14,7 +14,7 @@ EncodedSequence = List[int]
 Batch = List[EncodedSequence]
 Example = Tuple[EncodedSequence, EncodedSequence]
 
-class BatchGenerator:
+class DataGenerator:
     """
     A class for iterating over batches of examples.
     
@@ -25,10 +25,10 @@ class BatchGenerator:
         all the relevant informations.
     """
 
-    def __init__(self, config: Config, corpus_type: Literal="train"):
+    def __init__(self, config: Config, corpus_type: Literal["train", "dev"]):
         self.tokenizer = spm.SentencePieceProcessor(model_file=config.tokenizer)
         self.config = config
-        corpus = config.dev if corpus_type == "train" else config.dev
+        corpus = config.to_dict()[corpus_type]
         self.examples = self.make_examples(corpus)
         self.size = len(self.examples)
 
@@ -159,8 +159,8 @@ class BatchGenerator:
         random_example = randrange(self.size)
         # get only the source sequence, not the target
         x, _ = self[random_example]
-        # get maximum 75 percent of the sequence
-        subsequence = max(2, randrange(int(0.75 * len(x))))
+        # prompt maximum 50 percent of the sequence
+        subsequence = max(2, randrange(int(0.5 * len(x))))
         return x[:subsequence], x
 
     def __getitem__(self, idx: int) -> Example:

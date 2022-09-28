@@ -48,33 +48,26 @@ class Config:
         The batch size.
     - lr: float, int
         The learning rate.
+    - print_generation_steps
+        Print the generation every given steps (batchs)
     """
     vocab_size: int
     tokenizer: str
     train: str
     dev: str
-    epochs: int = 50
-    batch_size: int = 16
-    lr: Union[int, float] = 0.00013
-    pad_idx: Optional[int] = 3
-    embedding_dims: int = 128
-    max_length: int = 200
-    add_positions: bool = True
-    heads: int = 4
-    layers: int = 4
-    ff_size: int = heads * embedding_dims
-    dropout: Union[int, float] = 0.07
-    device: str = "cpu"
-
+    epochs: int
+    batch_size: int
+    lr: Union[int, float]
+    pad_idx: Optional[int]
+    embedding_dims: int
+    max_length: int
+    add_positions: bool
+    heads: int
+    layers: int
+    ff_size: int
+    dropout: Union[int, float]
+    print_generation_steps: int
 
     def to_dict(self) -> Dict[str, Number]:
         """Will return all the parameters as a dictionnary."""
         return asdict(self)
-    
-    def init_from_dict(self,
-                       dictionnary: Dict[str, Number]):
-        """
-        Will return a new instance of the class\
-        from a given dictionnary
-        """
-        return Config(**dictionnary)
