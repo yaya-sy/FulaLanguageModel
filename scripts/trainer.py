@@ -21,7 +21,7 @@ def train(model, traingenerator, validgenerator, device, output_path, config) :
     """Train the language model and print progression."""
     pad_idx = model.pad_idx
     cross_entropy = nn.CrossEntropyLoss(reduction="mean", ignore_index=pad_idx)
-    optimizer = torch.optim.Adam(model.parameters(), lr=config.lr)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=config.lr, weight_decay=.1, betas=(0.9, 0.95))
     best_loss = float("Inf")
     nb_batchs = sum(1 for _ in range(0, traingenerator.size, config.batch_size))
     verbose = 0
@@ -36,6 +36,7 @@ def train(model, traingenerator, validgenerator, device, output_path, config) :
             O = model(X) # out.shape = [b, s, vocab_size]
             loss = cross_entropy(O.view(b * s, -1), Y.view(-1)) # O.shape[0] and Y.shape[0] must be same
             loss.backward() # backprobagation in order to compute the gradients of the loss function wrt parameters
+            nn.utils.clip_grad_norm_(model.parameters(), 1) # if the norm of the gradients vector is superior to 1, then the gradient is so to 1.
             optimizer.step() # update parameters
             loss_sum += loss.item()
             total += 1
@@ -75,7 +76,7 @@ def main():
     LOGGER.info(f"Using device {device}")
     model.to(device)
     if config.checkpoint is not None:
-        LOGGER.info(f"Loading checkpoint {config.checkpoint}")
+        LOGGER.info(f"Loading 'checkpoint {config.checkpoint}'")
         model.load_state_dict(torch.load(config.checkpoint, 
                                          map_location=torch.device(device)))
     LOGGER.info("Training ...")
