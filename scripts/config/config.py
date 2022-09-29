@@ -68,7 +68,7 @@ class Config:
     layers: int
     ff_size: int
     dropout: Union[int, float]
-    print_generation_steps: int
+    valid_every_n_steps: int
     checkpoint: Optional[str]
 
     def to_dict(self) -> Dict[str, Number]:

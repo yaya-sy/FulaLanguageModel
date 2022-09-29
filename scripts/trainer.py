@@ -40,15 +40,16 @@ def train(model, traingenerator, validgenerator, device, output_path, config) :
             optimizer.step() # update parameters
             loss_sum += loss.item()
             total += 1
-            if verbose > config.print_generation_steps:
+            train_loss = loss_sum / total
+            if verbose > config.valid_every_n_steps:
                 prompted, expected = validgenerator.prompt()
+                print(f"epoch={epoch + 1}, train loss={train_loss}, train ppl={10 ** torch.tensor(train_loss)} lr={optimizer.param_groups[0]['lr']}")
                 print(f"prompted : {validgenerator.decode(prompted)}")
                 print(f"expected : {validgenerator.decode(expected)}")
                 print(f"generated : {nucleus_sampling(model, validgenerator.tokenizer, prompted, device)}")
                 print()
                 verbose = 0
             verbose += 1
-        train_loss = loss_sum / total
         print(f"epoch={epoch + 1}, train loss={train_loss}, train ppl={10 ** torch.tensor(train_loss)} lr={optimizer.param_groups[0]['lr']}")
         if train_loss < best_loss :
             best_loss = train_loss
