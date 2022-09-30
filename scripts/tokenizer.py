@@ -17,7 +17,7 @@ def main():
                         required=True)
     parser.add_argument("-v", "--vocab_size",
                         help="The size of the vocabulary.",
-                        default=12_000,
+                        default=24_000,
                         required=False)
     args = parser.parse_args()
     train(args.input_text, args.vocab_size)

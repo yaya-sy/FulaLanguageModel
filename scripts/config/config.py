@@ -52,6 +52,8 @@ class Config:
         Print the generation every given steps (batchs)
     - checkpoint: str
         If given, the path to a given checkpoint of the model
+    - T_max: int
+        Decreases the lr to for many iterations.
     """
     vocab_size: int
     tokenizer: str
@@ -69,6 +71,7 @@ class Config:
     ff_size: int
     dropout: Union[int, float]
     valid_every_n_steps: int
+    T_max: int
     checkpoint: Optional[str]
 
     def to_dict(self) -> Dict[str, Number]:

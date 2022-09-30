@@ -1,17 +1,18 @@
 add_positions: true
-epochs: 10
-batch_size: 16
+epochs: 3
+batch_size: 32
 dev: data/raw_text/fula.txt
-dropout: 0.07
+dropout: 0.1
 embedding_dims: 256
 ff_size: 1024
 heads: 4
-layers: 4
-lr: 0.000013
+layers: 6
+lr: 2.5e-4
 max_length: 200
 pad_idx: 3
-tokenizer: data/tokenizer_models/fula.model
+tokenizer: data/tokenizers/fula.model
 train: data/raw_text/fula.txt
-vocab_size: 12000
-valid_every_n_steps: 5000
+vocab_size: 24000
+valid_every_n_steps: 3000
+T_max: 3000
 checkpoint: # "checkpoints/fula.pt"
