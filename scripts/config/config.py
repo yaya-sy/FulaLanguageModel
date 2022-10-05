@@ -54,6 +54,8 @@ class Config:
         If given, the path to a given checkpoint of the model
     - T_max: int
         Decreases the lr to for many iterations.
+    - gradients_accumulation: int
+        The number of examples to accumulate
     """
     vocab_size: int
     tokenizer: str
@@ -73,6 +75,7 @@ class Config:
     valid_every_n_steps: int
     T_max: int
     checkpoint: Optional[str]
+    gradients_accumulation: int
 
     def to_dict(self) -> Dict[str, Number]:
         """Will return all the parameters as a dictionnary."""

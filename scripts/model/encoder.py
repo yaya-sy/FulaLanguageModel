@@ -27,8 +27,7 @@ class TransformerEncoder(nn.Module):
 
     def forward(self,
                 src: Tensor,
-                keys_pad_mask: Optional[Tensor]=None,
-                mask_futur: bool=False
+                mask: Optional[Tensor]=None
                 ) -> Tensor:
         """
         Will embedded the input sequences and represent them\
@@ -59,5 +58,5 @@ class TransformerEncoder(nn.Module):
         """
 
         for transformer in self.layers:
-            src = transformer(src, src, keys_pad_mask=keys_pad_mask, mask_futur=mask_futur)
+            src = transformer(src, src, mask=mask)
         return src

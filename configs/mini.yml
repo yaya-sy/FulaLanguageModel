@@ -12,6 +12,7 @@ max_length: 200
 pad_idx: 3
 tokenizer: data/tokenizers/fula.model
 train: data/raw_text/fula.txt
+gradients_accumulation: 1024
 vocab_size: 24000
 valid_every_n_steps: 3000
 T_max: 3000

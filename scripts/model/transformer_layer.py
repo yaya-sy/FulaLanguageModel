@@ -34,8 +34,7 @@ class MultiHeadAttention(nn.Module):
                 q: Tensor,
                 k: Tensor,
                 v: Tensor,
-                keys_pad_mask: Optional[Tensor]=None,
-                mask_futur: bool=True
+                mask: Optional[Tensor]=None
                 ) -> Tensor:
         """
         Compute attention mechanism of an embedded sequence of tokens.
@@ -56,15 +55,6 @@ class MultiHeadAttention(nn.Module):
             The values as a three dimension tensor of embedded sequences.
             The shape must be [b, s, e] where 'b' is the batch size,\
             's' is the length of the sequence and 'e' the embedding dimension.
-
-        - keys_pad_mask: Tensor or None.
-            Do not mask to the subsequent keys indexes.
-            If given, must be a boolean tensor of shape [b, s_k].
-            The boolean value 'True' will be masked.
-        
-        - mask_futur: bool
-            If True, the next tokens of the keys will be masked
-            by masking the lower triangle of the matrix.
         
         Returns
         -------
@@ -86,23 +76,15 @@ class MultiHeadAttention(nn.Module):
         # linear projections of the keys, queries and values.
         # and split them into the number of heads, before to compute the attention
         # so we have multiple attention models (heads) learned independantly.
-        K = self.K(k).view(b, self.heads, s_k, -1)
+        K = self.K(k).view(b, self.heads, s_k, -1).transpose(2, 3)
         Q = self.Q(q).view(b, self.heads, s_q, -1)
         V = self.V(v).view(b, self.heads, s_v, -1)
 
-
         # dot-product and use the scaling factor from 'Attention is all you need" paper
         # (https://arxiv.org/pdf/1706.03762.pdf)
-        QK = (Q @ K.transpose(2, 3)) / (1 / torch.sqrt(torch.tensor(Q.shape[-1]))) # shape=[b, h, s_q, s_k]
-        
-        # mask the pad indexes
-        if keys_pad_mask is not None:
-            pad_mask = keys_pad_mask.view(b, 1, 1, -1).repeat(1, self.heads, s_q, 1)
-            QK[pad_mask] = float("-inf")
-        # mask futur, relevant for a decoder language model for example
-        if mask_futur:
-            attn_mask = torch.triu(torch.ones(1, 1, s_q, s_k), 1).repeat(b, self.heads, 1, 1).bool()
-            QK[attn_mask] = float("-inf")
+        QK = (Q @ K) / 1 / torch.sqrt(torch.tensor(K.shape[-1])) # shape=[b, h, s_q, s_k]
+        if mask is not None:
+            QK += mask[:s_k, :s_k]
         attention = self.softmax(QK) # shape=[b, h, s, s])
         # for each word, concatenate the attention vectors comming from all the heads.
         out = (attention @ V).view(b, s_q, -1) # [b, s, embedd_dims]
@@ -134,8 +116,7 @@ class TransformerLayer(nn.Module):
     def forward(self,
                 src: Tensor,
                 tgt: Tensor,
-                keys_pad_mask: Optional[Tensor]=None,
-                mask_futur: bool=False
+                mask: Optional[Tensor]=None
                 ) -> Tensor:
         """
         Forward an embedded tensor in the transformer layer.
@@ -169,7 +150,7 @@ class TransformerLayer(nn.Module):
             the sequence. So each vector in the sequence contains\
             the informations about other tokens in the sequence.
         """
-        c = self.mha(src, tgt, tgt, keys_pad_mask, mask_futur)
+        c = self.mha(src, tgt, tgt, mask)
         cz = self.layer_norm1(c + tgt)
         f = self.dropout_ff(self.mlp(cz))
         return self.layer_norm2(f + cz)

@@ -4,11 +4,11 @@ by using the transformer encoder with masked next token.
 """
 import sys
 sys.path.append('.')
-from typing import Union
 from scripts.model.encoder import TransformerEncoder
 
 import torch
 from torch import nn
+from torch.amp import autocast
 from torch import Tensor
 
 class TransformerLM(nn.Module):
@@ -52,10 +52,14 @@ class TransformerLM(nn.Module):
             is the batch size, 's' the length of the sequences in the batch.
         """
         _, s = x.shape
-        device: str = x.device
+        device = x.device
 
-        pad_mask_true: bool = self.pad_idx is not None
-        pad_mask: Union[Tensor, None] = (x == self.pad_idx).to(device) if pad_mask_true else None
+        # masking future
+        mask = torch.empty(s, s).to(device)
+        mask.fill_(float("-inf")).triu_(1)
+        # masking pad indexes
+        pad_mask = (x == self.pad_idx)[-1, ...]
+        mask[:, pad_mask] = float("-inf")
 
         e = self.transformer_lm.w_embeddings(x)
 
@@ -64,5 +68,5 @@ class TransformerLM(nn.Module):
             p_embeddings = self.transformer_lm.p_embeddings(positions)
             e += p_embeddings
 
-        c = self.transformer_lm.decoder(e, keys_pad_mask=pad_mask, mask_futur=True)
+        c = self.transformer_lm.decoder(e, mask)
         return self.transformer_lm.linear(c)
