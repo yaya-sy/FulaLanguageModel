@@ -16,4 +16,4 @@ gradients_accumulation: 256
 vocab_size: 24000
 valid_every_n_steps: 17000
 T_max: 2000
-checkpoint: "checkpoints/fula.pt"
+checkpoint:
