@@ -8,6 +8,7 @@ from scripts.model.language_model import TransformerLM
 from argparse import ArgumentParser
 from pathlib import Path
 import logging
+from pathlib import Path
 
 import torch
 from torch import nn
@@ -31,9 +32,12 @@ def train(model, traingenerator, validgenerator, device, output_path, config) :
     nb_batchs = sum(1 for _ in range(0, traingenerator.size, config.batch_size))
     verbose = 0
     with open("training.logs", "a+") as epochs_file:
-        *_, last = enumerate(epochs_file)
-        last_epoch = last, _
-        last_epoch += 1
+        try:
+            *_, last = enumerate(epochs_file)
+            last_epoch = last, _
+            last_epoch += 1
+        except:
+            last_epoch = 0
         for epoch in range(last_epoch, last_epoch + config.epochs) :
             loss_sum = 0
             total = 0
