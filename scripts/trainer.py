@@ -30,8 +30,11 @@ def train(model, traingenerator, validgenerator, device, output_path, config) :
     best_loss = float("Inf")
     nb_batchs = sum(1 for _ in range(0, traingenerator.size, config.batch_size))
     verbose = 0
-    with open("training.logs", "w+") as epochs_file:
-        for epoch in range(config.epochs) :
+    with open("training.logs", "a+") as epochs_file:
+        *_, last = enumerate(epochs_file)
+        last_epoch = last, _
+        last_epoch += 1
+        for epoch in range(last_epoch, last_epoch + config.epochs) :
             loss_sum = 0
             total = 0
             accumulations = 0
@@ -53,6 +56,8 @@ def train(model, traingenerator, validgenerator, device, output_path, config) :
                 nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0) # if the norm of the gradients vector is superior to 5, then the gradient is so to 5.
                 scaler.step(optimizer) # update parameters
                 scaler.update()
+                # scheduler taking account only the number of time the parameters are update ... 
+                # that is the accumulation iterations and not just the number of batchs.
                 scheduler.step()
                 optimizer.zero_grad()
                 loss_sum += loss.item()
@@ -66,16 +71,12 @@ def train(model, traingenerator, validgenerator, device, output_path, config) :
                     print(f"expected : {validgenerator.decode(expected)}")
                     print(f"generated : {nucleus_sampling(model, validgenerator.tokenizer, prompted, device)}")
                     verbose = 0
-                verbose += 512
+                verbose += config.gradients_accumulation
             train_loss = loss_sum / total
             epoch_info = f"train loss={train_loss}, train ppl={10 ** torch.tensor(train_loss)}, lr={optimizer.param_groups[0]['lr']}"
             epochs_file.write(epoch_info + "\n")
             print()
             print(f"epoch={epoch + 1}, {epoch_info}")
-            # prompted, expected = validgenerator.prompt()
-            # print(f"prompted : {validgenerator.decode(prompted)}")
-            # print(f"expected : {validgenerator.decode(expected)}")
-            # print(f"generated : {nucleus_sampling(model, validgenerator.tokenizer, prompted, device)}")
             if train_loss < best_loss :
                 best_loss = train_loss
                 torch.save(model.state_dict(), output_path / "fula.pt")
@@ -117,5 +118,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
