@@ -50,9 +50,10 @@ def train(model, traingenerator, validgenerator, device, output_path, config) :
                     O = model(X) # out.shape = [b, s, vocab_size]
                     loss = cross_entropy(O.view(b * s, -1), Y.view(-1)) # O.shape[0] and Y.shape[0] must be same
                 accumulations += b
+                verbose += 1
                 # accumulate the gradients
                 scaler.scale(loss).backward()
-                if (accumulations < config.gradients_accumulation) and (batch_idx + config.gradients_accumulation) <= nb_batchs:
+                if (accumulations < config.gradients_accumulation) and (batch_idx + config.gradients_accumulation) < nb_batchs:
                     continue
                 # if number of gradients accumulations reached then update the parameters
                 accumulations = 0
@@ -67,7 +68,7 @@ def train(model, traingenerator, validgenerator, device, output_path, config) :
                 loss_sum += loss.item()
                 total += 1
                 steps_loss = loss_sum / total
-                if verbose > config.valid_every_n_steps:
+                if verbose > config.valid_every_n_batchs:
                     prompted, expected = validgenerator.prompt()
                     print()
                     print(f"epoch={epoch + 1}, train loss={steps_loss}, train ppl={10 ** torch.tensor(steps_loss)} lr={optimizer.param_groups[0]['lr']}")
@@ -75,7 +76,6 @@ def train(model, traingenerator, validgenerator, device, output_path, config) :
                     print(f"expected : {validgenerator.decode(expected)}")
                     print(f"generated : {nucleus_sampling(model, validgenerator.tokenizer, prompted, device)}")
                     verbose = 0
-                verbose += config.gradients_accumulation
             train_loss = loss_sum / total
             epoch_info = f"train loss={train_loss}, train ppl={10 ** torch.tensor(train_loss)}, lr={optimizer.param_groups[0]['lr']}"
             epochs_file.write(epoch_info + "\n")

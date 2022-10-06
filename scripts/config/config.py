@@ -72,7 +72,7 @@ class Config:
     layers: int
     ff_size: int
     dropout: Union[int, float]
-    valid_every_n_steps: int
+    valid_every_n_batchs: int
     T_max: int
     checkpoint: Optional[str]
     gradients_accumulation: int
