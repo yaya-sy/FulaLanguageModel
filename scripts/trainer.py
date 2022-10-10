@@ -34,7 +34,8 @@ def train(model, traingenerator, validgenerator, device, output_path, config) :
     with open("training.logs", "a+") as epochs_file:
         try:
             *_, last = enumerate(epochs_file)
-            last_epoch = last, _
+            last_epoch, _ = last
+            last_epoch = int(last_epoch)
             last_epoch += 1
         except:
             last_epoch = 0
