@@ -55,4 +55,9 @@ def nucleus_sampling(model,
             gen_idxs.append(next_token.item())
             if next_token.item() == tokenizer.eos_id() :
                 gen_again = False
-        return tokenizer.decode(gen_idxs)
+        try :
+            out = tokenizer.decode(gen_idxs)
+        except:
+            print(gen_idxs)
+            out = "..."
+        return out

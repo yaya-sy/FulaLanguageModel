@@ -64,6 +64,7 @@ class Config:
     epochs: int
     batch_size: int
     lr: Union[int, float]
+    max_lr: Union[int, float]
     pad_idx: Optional[int]
     embedding_dims: int
     max_length: int
@@ -73,7 +74,7 @@ class Config:
     ff_size: int
     dropout: Union[int, float]
     valid_every_n_batchs: int
-    T_max: int
+    step_size_up: int
     checkpoint: Optional[str]
     gradients_accumulation: int
 

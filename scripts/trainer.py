@@ -1,5 +1,8 @@
 """This module implements a simple trainer."""
 import sys
+from turtle import clear
+
+from numpy import isin
 sys.path.append('.')
 from data_generator import DataGenerator
 from generator import nucleus_sampling
@@ -12,28 +15,47 @@ from pathlib import Path
 
 import torch
 from torch import nn
-from torch.amp import autocast
-from torch.cuda.amp import GradScaler
-from torch.optim.lr_scheduler import CosineAnnealingLR
+from torch.optim.lr_scheduler import CosineAnnealingLR # CyclicLR
 from tqdm import tqdm
 import yaml
 
 LOGGER = logging.getLogger(__name__)
 logging.basicConfig(level=logging.DEBUG)
 
+def get_optimizer(model, config):
+    """"""
+    no_decay = set()
+    decay = set()
+    no_weight_decay = (nn.LayerNorm, nn.Embedding)
+    weight_decay = nn.Linear
+    for mn, m in model.named_modules():
+        for pn, p in m.named_parameters():
+            fpn = f'{mn}.{pn}' if mn else pn
+            if pn.endswith("bias"):
+                no_decay.add(fpn)
+            elif pn.endswith("weight") and isinstance(m, no_weight_decay):
+                no_decay.add(fpn)
+            elif pn.endswith("weight") and isinstance(m, weight_decay):
+                decay.add(fpn)
+    param_dict = dict(model.named_parameters())
+    optim_groups = [
+        {"params": [param_dict[pn] for pn in sorted(list(decay))], "weight_decay": 0.01},
+        {"params": [param_dict[pn] for pn in sorted(list(no_decay))], "weight_decay": 0.0},
+    ]
+    return optim_groups
 def train(model, traingenerator, validgenerator, device, output_path, config) :
     """Train the language model and print progression."""
     pad_idx = model.pad_idx
-    scaler = GradScaler()
+    optim_groups = get_optimizer(model, config)
     cross_entropy = nn.CrossEntropyLoss(reduction="mean", ignore_index=pad_idx)
-    optimizer = torch.optim.AdamW(model.parameters(), lr=config.lr, weight_decay=.1, betas=(0.9, 0.95))
-    scheduler = CosineAnnealingLR(optimizer, T_max=config.T_max, eta_min=0)
+    optimizer = torch.optim.AdamW(optim_groups, lr=config.lr)
+    scheduler = CosineAnnealingLR(optimizer, T_max=config.step_size_up, eta_min=0)
     best_loss = float("Inf")
     nb_batchs = sum(1 for _ in range(0, traingenerator.size, config.batch_size))
     verbose = 0
     with open("training.logs", "a+") as epochs_file:
         try:
-            *_, last = enumerate(epochs_file)
+            *_, last, _ = enumerate(epochs_file)
             last_epoch, _ = last
             last_epoch = int(last_epoch)
             last_epoch += 1
@@ -47,21 +69,16 @@ def train(model, traingenerator, validgenerator, device, output_path, config) :
                 X = torch.tensor(X).to(device)
                 Y = torch.tensor(Y).to(device)
                 b, s = X.shape
-                with autocast(device_type="cuda"):
-                    O = model(X) # out.shape = [b, s, vocab_size]
-                    loss = cross_entropy(O.view(b * s, -1), Y.view(-1)) # O.shape[0] and Y.shape[0] must be same
+                O = model(X) # out.shape = [b, s, vocab_size]
+                loss = cross_entropy(O.view(b * s, -1), Y.view(-1)) # O.shape[0] and Y.shape[0] must be same
                 accumulations += b
                 verbose += 1
                 # accumulate the gradients
-                scaler.scale(loss).backward()
-                if (accumulations < config.gradients_accumulation) and (batch_idx + config.gradients_accumulation) < nb_batchs:
-                    continue
+                loss.backward()
                 # if number of gradients accumulations reached then update the parameters
                 accumulations = 0
-                scaler.unscale_(optimizer)
                 nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0) # if the norm of the gradients vector is superior to 5, then the gradient is so to 5.
-                scaler.step(optimizer) # update parameters
-                scaler.update()
+                optimizer.step() # update parameters
                 # scheduler taking account only the number of time the parameters are update ... 
                 # that is the accumulation iterations and not just the number of batchs.
                 scheduler.step()
@@ -99,9 +116,6 @@ def main():
         yaml_config = yaml.safe_load(config_file)
     config = Config(**yaml_config)
     print(f"Parameters={config}")
-    LOGGER.info("Loading data generators")
-    traingenerator = DataGenerator(config, "train")
-    validgenerator = DataGenerator(config, "dev")
 
     model = TransformerLM(config)
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -112,6 +126,9 @@ def main():
         LOGGER.info(f"Loading 'checkpoint {config.checkpoint}'")
         model.load_state_dict(torch.load(config.checkpoint, 
                                          map_location=torch.device(device)))
+    LOGGER.info("Loading data generators")
+    traingenerator = DataGenerator(config, "train")
+    validgenerator = DataGenerator(config, "dev")
     LOGGER.info("Training ...")
     train(model=model,
           traingenerator=traingenerator,

@@ -55,6 +55,10 @@ class MultiHeadAttention(nn.Module):
             The values as a three dimension tensor of embedded sequences.
             The shape must be [b, s, e] where 'b' is the batch size,\
             's' is the length of the sequence and 'e' the embedding dimension.
+        - mask: Optional
+            Use to mask some values to not be attended by the model.
+            If given, the shape must be of [s_q, s_k] where 's_k' is\
+            the length of keys sequences and 's_q' is the length of queries sequences.
         
         Returns
         -------
@@ -131,14 +135,11 @@ class TransformerLayer(nn.Module):
             The three dimension tensor of the embedded sequence.
             The shape must be [b, s, e] where 'b' is the batch size,\
             's' is the length of the target sequence and 'e' the embedding dimension.
-
-        - keys_pad_mask: Tensor or None.
-            Mask the pad indexes. If given, must be a boolean tensor of shape [b, s].
-            The boolean value 'True' will be masked.
         
-        - mask_futur: bool
-            If True, the next tokens of the keys will be masked\
-            using by masking the upper triangle of the matrix.
+        - mask: Optional
+            If given, must be of shape (target_length, source_length).
+            The next tokens of the source sequence will be masked\
+            by masking the upper triangle of the matrix.
         
         Returns
         -------
@@ -150,7 +151,7 @@ class TransformerLayer(nn.Module):
             the sequence. So each vector in the sequence contains\
             the informations about other tokens in the sequence.
         """
-        c = self.mha(src, tgt, tgt, mask)
+        c = self.mha(tgt, src, src, mask)
         cz = self.layer_norm1(c + tgt)
         f = self.dropout_ff(self.mlp(cz))
         return self.layer_norm2(f + cz)
