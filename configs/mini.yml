@@ -4,6 +4,9 @@ batch_size: 32
 dev: data/raw_text/fula_nltk.txt
 dropout: 0.1
 embedding_dims: 256
+normalize_word_embeddings: false
+radius: 4
+tied_embeddings: false
 ff_size: 1024
 heads: 4
 layers: 8

@@ -67,6 +67,9 @@ class Config:
     max_lr: Union[int, float]
     pad_idx: Optional[int]
     embedding_dims: int
+    normalize_word_embeddings: bool
+    radius: Union[int, float]
+    tied_embeddings: bool
     max_length: int
     add_positions: bool
     heads: int

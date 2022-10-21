@@ -1,19 +1,23 @@
 add_positions: true
-epochs: 1
-batch_size: 4
-dev: ../fula.txt
-dropout: 0.1
+epochs: 5
+batch_size: 16
+dev: data/raw_text/fula_nltk.txt
+dropout: 0.07
 embedding_dims: 768
+normalize_word_embeddings: false
+radius: 4
+tied_embeddings: false
 ff_size: 3072
 heads: 12
-layers: 12
+layers: 16
 lr: 2.5e-4
+max_lr: 0.01
 max_length: 200
 pad_idx: 3
-tokenizer: data/tokenizers/fula.model
-train: ../fula.txt
-gradients_accumulation: 256
-vocab_size: 24000
-valid_every_n_batchs: 17000
-T_max: 2000
-checkpoint:
+tokenizer: data/tokenizers/fula_nltk_16000.model
+train: data/raw_text/fula_nltk.txt
+gradients_accumulation: 128
+vocab_size: 16000
+valid_every_n_batchs: 3000
+step_size_up: 2000
+checkpoint: 
