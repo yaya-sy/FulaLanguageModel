@@ -22,15 +22,18 @@ import yaml
 LOGGER = logging.getLogger(__name__)
 logging.basicConfig(level=logging.DEBUG)
 
-def get_optimizer(model, config):
+def get_optimizer(model):
     """"""
     no_decay = set()
     decay = set()
-    no_weight_decay = (nn.LayerNorm, nn.Embedding)
+    no_weight_decay = nn.LayerNorm
     weight_decay = nn.Linear
     for mn, m in model.named_modules():
         for pn, p in m.named_parameters():
             fpn = f'{mn}.{pn}' if mn else pn
+            # custom nn.Parameters named embeddings
+            if not mn and "embeddings" in fpn:
+                no_decay.add(fpn)
             if pn.endswith("bias"):
                 no_decay.add(fpn)
             elif pn.endswith("weight") and isinstance(m, no_weight_decay):
@@ -38,6 +41,11 @@ def get_optimizer(model, config):
             elif pn.endswith("weight") and isinstance(m, weight_decay):
                 decay.add(fpn)
     param_dict = dict(model.named_parameters())
+    inter_params = decay & no_decay
+    union_params = decay | no_decay
+    assert len(inter_params) == 0, "parameters %s made it into both decay/no_decay sets!" % (str(inter_params), )
+    assert len(param_dict.keys() - union_params) == 0, "parameters %s were not separated into either decay/no_decay set!" \
+                                                    % (str(param_dict.keys() - union_params), )
     optim_groups = [
         {"params": [param_dict[pn] for pn in sorted(list(decay))], "weight_decay": 0.01},
         {"params": [param_dict[pn] for pn in sorted(list(no_decay))], "weight_decay": 0.0},
@@ -46,7 +54,7 @@ def get_optimizer(model, config):
 def train(model, traingenerator, validgenerator, device, output_path, config) :
     """Train the language model and print progression."""
     pad_idx = model.pad_idx
-    optim_groups = get_optimizer(model, config)
+    optim_groups = get_optimizer(model)
     cross_entropy = nn.CrossEntropyLoss(reduction="mean", ignore_index=pad_idx)
     optimizer = torch.optim.AdamW(optim_groups, lr=config.lr)
     scheduler = CosineAnnealingLR(optimizer, T_max=config.step_size_up, eta_min=0)
@@ -118,6 +126,7 @@ def main():
     print(f"Parameters={config}")
 
     model = TransformerLM(config)
+    get_optimizer(model)
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     assert device.type == "cuda", """Cannot train on CPU"""
     LOGGER.info(f"Using device {device}")
