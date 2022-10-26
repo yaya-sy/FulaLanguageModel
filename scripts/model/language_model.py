@@ -39,6 +39,7 @@ class TransformerLM(nn.Module):
         else:
             # bias is a vector 
             self.out_bias = nn.Parameter(torch.Tensor(config.vocab_size))
+            torch.nn.init.zeros_(self.out_bias)
         if config.add_positions:
             self.position_embeddings = nn.Parameter(torch.Tensor(config.max_length, config.embedding_dims))
         self.pad_idx: int = config.pad_idx
@@ -78,7 +79,7 @@ class TransformerLM(nn.Module):
         device = x.device
 
         # masking future
-        mask = torch.zeros(s, s).bool().to(device)
+        mask = torch.ones(s, s).triu(1).bool().to(device)
         # masking pad indexes
         pad_mask = (x == self.pad_idx)[-1, ...]
         mask[:, pad_mask] = True
