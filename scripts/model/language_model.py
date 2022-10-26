@@ -78,11 +78,10 @@ class TransformerLM(nn.Module):
         device = x.device
 
         # masking future
-        mask = torch.empty(s, s).to(device)
-        mask.fill_(float("-inf")).triu_(1)
+        mask = torch.zeros(s, s).bool().to(device)
         # masking pad indexes
         pad_mask = (x == self.pad_idx)[-1, ...]
-        mask[:, pad_mask] = float("-inf")
+        mask[:, pad_mask] = True
 
         w_embeddings = (self.r * F.normalize(self.word_embeddings, dim=-1)
                         if self.fix_norm else self.word_embeddings)
@@ -96,5 +95,5 @@ class TransformerLM(nn.Module):
         c = self.decoder(e, mask)
         if self.linear is None:
             # tied embeddings
-            return F.linear(c, w_embeddings, bias=self.out_bias)
+            return (c @ w_embeddings.T) + self.out_bias
         return self.linear(c)
