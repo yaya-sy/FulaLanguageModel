@@ -99,5 +99,5 @@ class TransformerLM(nn.Module):
         c = self.decoder(e, mask)
         if self.linear is None:
             # tied embeddings
-            return (c @ w_embeddings.T) + self.out_bias
+            return F.linear(input=c, weight=w_embeddings, bias=self.out_bias)
         return self.linear(c)

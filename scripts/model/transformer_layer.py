@@ -110,7 +110,7 @@ class TransformerLayer(nn.Module):
         self.layer_norm1 = nn.LayerNorm(normalized_shape=config.embedding_dims)
         self.mlp = nn.Sequential(
             nn.Linear(in_features=config.embedding_dims, out_features=config.ff_size),
-            nn.ReLU(),
+            nn.GELU(),
             nn.Linear(in_features=config.ff_size, out_features=config.embedding_dims)
         )
 
