@@ -2,7 +2,7 @@
 import sys
 from turtle import clear
 
-from numpy import isin
+from numpy import gradient, isin
 sys.path.append('.')
 from data_generator import DataGenerator
 from generator import nucleus_sampling
@@ -72,19 +72,19 @@ def train(model, traingenerator, validgenerator, device, output_path, config) :
         for epoch in range(last_epoch, last_epoch + config.epochs) :
             loss_sum = 0
             total = 0
-            accumulations = 0
-            for batch_idx, (X, Y) in tqdm(enumerate(traingenerator(batch_size=config.batch_size)), total=nb_batchs):
+            for batch_idx, (X, Y) in tqdm(enumerate(traingenerator(batch_size=config.batch_size), 1), total=nb_batchs):
                 X = torch.tensor(X).to(device)
                 Y = torch.tensor(Y).to(device)
                 b, s = X.shape
                 O = model(X) # out.shape = [b, s, vocab_size]
                 loss = cross_entropy(O.view(b * s, -1), Y.view(-1)) # O.shape[0] and Y.shape[0] must be same
-                accumulations += b
                 verbose += 1
                 # accumulate the gradients
                 loss.backward()
                 # if number of gradients accumulations reached then update the parameters
-                accumulations = 0
+                if config.gradients_accumulation is not None:
+                    if batch_idx % config.gradients_accumulation != 0 and (nb_batchs - batch_idx) > config.gradients_accumulation:
+                        continue
                 if config.norm_clip is not None:
                     nn.utils.clip_grad_norm_(model.parameters(), max_norm=config.norm_clip) # if the norm of the gradients vector is superior to 5, then the gradient is so to 5.
                 optimizer.step() # update parameters
