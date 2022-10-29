@@ -80,13 +80,13 @@ class MultiHeadAttention(nn.Module):
         # linear projections of the keys, queries and values.
         # and split them into the number of heads, before to compute the attention
         # so we have multiple attention models (heads) learned independantly.
-        K = self.K(k).view(b, self.heads, s_k, -1).transpose(2, 3)
+        K = self.K(k).view(b, self.heads, s_k, -1)
         Q = self.Q(q).view(b, self.heads, s_q, -1)
         V = self.V(v).view(b, self.heads, s_v, -1)
 
         # dot-product and use the scaling factor from 'Attention is all you need" paper
         # (https://arxiv.org/pdf/1706.03762.pdf)
-        QK = (Q @ K) / torch.sqrt(torch.tensor(K.shape[-1])) # shape=[b, h, s_q, s_k]
+        QK = (Q @ K.transpose(2, 3)) / torch.sqrt(torch.tensor(K.shape[-1])) # shape=[b, h, s_q, s_k]
         if mask is not None:
             QK = QK.masked_fill(mask.unsqueeze(1).repeat(1, self.heads, 1, 1), float('-inf'))
         attention = self.softmax(QK) # shape=[b, h, s, s])
