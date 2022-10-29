@@ -32,6 +32,7 @@ class TransformerLM(nn.Module):
         self.r = config.radius
         self.word_embeddings = nn.Parameter(torch.Tensor(config.vocab_size, config.embedding_dims))
         self.position_embeddings = None
+        self.pos_padding_idx = config.max_length
         self.decoder = TransformerEncoder(config=config)
         self.linear = None
         if not config.tied_embeddings:
@@ -41,8 +42,8 @@ class TransformerLM(nn.Module):
             self.out_bias = nn.Parameter(torch.Tensor(config.vocab_size))
             torch.nn.init.zeros_(self.out_bias)
         if config.add_positions:
-            self.position_embeddings = nn.Parameter(torch.Tensor(config.max_length, config.embedding_dims))
-        self.pad_idx: int = config.pad_idx
+            self.position_embeddings = nn.Parameter(torch.Tensor(config.max_length + 1, config.embedding_dims))
+        self.word_padding_idx: int = config.pad_idx
         self.embedding_dims = config.embedding_dims
         # initializing word embeddings
         if self.fix_norm:
@@ -65,7 +66,7 @@ class TransformerLM(nn.Module):
             torch.nn.init.zeros_(module.bias)
             torch.nn.init.ones_(module.weight)
     
-    def forward(self, x: Tensor) -> Tensor:
+    def forward(self, x: Tensor, apply_mask=True) -> Tensor:
         """
         Forward across all the transformer decoder layers.
 
@@ -75,24 +76,26 @@ class TransformerLM(nn.Module):
             The input sequences. Must be of shape [b, s] where 'b'\
             is the batch size, 's' the length of the sequences in the batch.
         """
-        _, s = x.shape
+        b, s = x.shape
         device = x.device
-
-        # masking future
-        mask = torch.ones(s, s).triu(1).bool().to(device)
-        # masking pad indexes
-        pad_mask = (x == self.pad_idx)[-1, ...]
-        mask[:, pad_mask] = True
-
         w_embeddings = (self.r * F.normalize(self.word_embeddings, dim=-1)
                         if self.fix_norm else self.word_embeddings)
-        e = F.embedding(input=x, weight=w_embeddings, padding_idx=self.pad_idx)
-
+        e = F.embedding(input=x, weight=w_embeddings, padding_idx=self.word_padding_idx)
+        mask = None
+        # masking pad indexes
+        if apply_mask:
+            pad_mask = (x == self.word_padding_idx).to(device)
         if self.position_embeddings is not None:
-            positions = torch.arange(0, s, dtype=torch.long, device=device).unsqueeze(0)
-            p_embeddings = F.embedding(input=positions, weight=self.position_embeddings, padding_idx=self.pad_idx)
+            positions = torch.arange(0, s).unsqueeze(0).repeat(b, 1).to(device)
+            if apply_mask:
+                positions[pad_mask] = self.pos_padding_idx
+            p_embeddings = F.embedding(input=positions, weight=self.position_embeddings, padding_idx=self.pos_padding_idx)
             e += p_embeddings
-
+        if apply_mask:
+            pad_mask = pad_mask.unsqueeze(1).repeat(1, s, 1)
+            # masking future
+            mask = torch.ones(s, s).triu(1).unsqueeze(0).repeat(b, 1, 1).bool().to(device)
+            mask[pad_mask] = True
         c = self.decoder(e, mask)
         if self.linear is None:
             # tied embeddings

@@ -12,6 +12,7 @@ heads: 4
 layers: 8
 lr: 2.5e-4
 max_lr: 0.01
+norm_clip:
 max_length: 200
 pad_idx: 3
 tokenizer: data/tokenizers/fula_nltk_16000.model

@@ -65,6 +65,7 @@ class Config:
     batch_size: int
     lr: Union[int, float]
     max_lr: Union[int, float]
+    norm_clip: float
     pad_idx: Optional[int]
     embedding_dims: int
     normalize_word_embeddings: bool

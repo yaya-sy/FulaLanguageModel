@@ -53,7 +53,7 @@ def get_optimizer(model):
     return optim_groups
 def train(model, traingenerator, validgenerator, device, output_path, config) :
     """Train the language model and print progression."""
-    pad_idx = model.pad_idx
+    pad_idx = model.word_padding_idx
     optim_groups = get_optimizer(model)
     cross_entropy = nn.CrossEntropyLoss(reduction="mean", ignore_index=pad_idx)
     optimizer = torch.optim.AdamW(optim_groups, lr=config.lr)
@@ -85,7 +85,8 @@ def train(model, traingenerator, validgenerator, device, output_path, config) :
                 loss.backward()
                 # if number of gradients accumulations reached then update the parameters
                 accumulations = 0
-                nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0) # if the norm of the gradients vector is superior to 5, then the gradient is so to 5.
+                if config.norm_clip is not None:
+                    nn.utils.clip_grad_norm_(model.parameters(), max_norm=config.norm_clip) # if the norm of the gradients vector is superior to 5, then the gradient is so to 5.
                 optimizer.step() # update parameters
                 # scheduler taking account only the number of time the parameters are update ... 
                 # that is the accumulation iterations and not just the number of batchs.
@@ -128,7 +129,6 @@ def main():
     model = TransformerLM(config)
     get_optimizer(model)
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    assert device.type == "cuda", """Cannot train on CPU"""
     LOGGER.info(f"Using device {device}")
     model.to(device)
     if config.checkpoint is not None:
