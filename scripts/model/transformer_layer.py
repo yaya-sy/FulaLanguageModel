@@ -89,7 +89,7 @@ class MultiHeadAttention(nn.Module):
         # (https://arxiv.org/pdf/1706.03762.pdf)
         QK = (Q @ K.transpose(2, 3)) / sqrt(K.shape[-1]) # shape=[b, h, s_q, s_k]
         if mask is not None:
-            QK = QK.masked_fill(mask.unsqueeze(1).repeat(1, self.heads, 1, 1), float('-inf'))
+            QK = QK.masked_fill(mask, float('-inf'))
         attention = self.softmax(QK) # shape=[b, h, s, s])
         # for each word, concatenate the attention vectors comming from all the heads.
         out = (attention @ V).view(b, s_q, -1) # [b, s, embedd_dims]

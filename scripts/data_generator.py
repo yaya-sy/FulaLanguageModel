@@ -1,7 +1,7 @@
 """This module implements a generator of examples."""
 import sys
 sys.path.append('.')
-from typing import List, Tuple, Iterator, Literal
+from typing import List, Tuple, Iterator
 from scripts.config.config import Config
 import sentencepiece as spm
 
@@ -25,7 +25,7 @@ class DataGenerator:
         all the relevant informations.
     """
 
-    def __init__(self, config: Config, corpus_type: Literal["train", "dev"]):
+    def __init__(self, config: Config, corpus_type: str):
         self.tokenizer = spm.SentencePieceProcessor(model_file=config.tokenizer)
         self.config = config
         corpus = config.to_dict()[corpus_type]
@@ -151,7 +151,7 @@ class DataGenerator:
                 if len(example[0]) > self.config.max_length:
                     continue
                 examples.append(example)
-        return examples
+        return sorted(examples, key=lambda x: len(x[0]))
 
     def prompt(self) -> EncodedSequence:
         """Prompt an encoded sequence."""
@@ -188,7 +188,6 @@ class DataGenerator:
         - Iterator:
             Iterator over the batches.
         """
-        shuffle(self.examples)
         for step in range(0, self.size, batch_size) :
             x, y = zip(*self.examples[step:step + batch_size])
             yield self.pad(x), self.pad(y)

@@ -15,7 +15,7 @@ from pathlib import Path
 
 import torch
 from torch import nn
-from torch.optim.lr_scheduler import CosineAnnealingLR # CyclicLR
+from torch.optim.lr_scheduler import ReduceLROnPlateau # CosineAnnealingLR
 from tqdm import tqdm
 import yaml
 
@@ -32,7 +32,7 @@ def get_optimizer(model):
         for pn, p in m.named_parameters():
             fpn = f'{mn}.{pn}' if mn else pn
             # custom nn.Parameters named embeddings
-            if not mn and "embeddings" in fpn:
+            if not mn and ("embeddings" in fpn or "radius" in fpn):
                 no_decay.add(fpn)
             if pn.endswith("bias"):
                 no_decay.add(fpn)
@@ -51,13 +51,15 @@ def get_optimizer(model):
         {"params": [param_dict[pn] for pn in sorted(list(no_decay))], "weight_decay": 0.0},
     ]
     return optim_groups
+    
 def train(model, traingenerator, validgenerator, device, output_path, config) :
     """Train the language model and print progression."""
     pad_idx = model.word_padding_idx
     optim_groups = get_optimizer(model)
     cross_entropy = nn.CrossEntropyLoss(reduction="mean", ignore_index=pad_idx)
     optimizer = torch.optim.AdamW(optim_groups, lr=config.lr)
-    scheduler = CosineAnnealingLR(optimizer, T_max=config.step_size_up, eta_min=0)
+    scheduler = ReduceLROnPlateau(optimizer=optimizer,mode="min", factor=0.8, patience=2, threshold=0.001)
+    # scheduler = CosineAnnealingLR(optimizer, T_max=config.step_size_up, eta_min=0)
     best_loss = float("Inf")
     nb_batchs = sum(1 for _ in range(0, traingenerator.size, config.batch_size))
     verbose = 0
@@ -86,25 +88,26 @@ def train(model, traingenerator, validgenerator, device, output_path, config) :
                     if batch_idx % config.gradients_accumulation != 0 and (nb_batchs - batch_idx) > config.gradients_accumulation:
                         continue
                 if config.norm_clip is not None:
-                    nn.utils.clip_grad_norm_(model.parameters(), max_norm=config.norm_clip) # if the norm of the gradients vector is superior to 5, then the gradient is so to 5.
+                    nn.utils.clip_grad_norm_(model.parameters(), max_norm=config.norm_clip) # clip gradient vectors by norm
                 optimizer.step() # update parameters
-                # scheduler taking account only the number of time the parameters are update ... 
-                # that is the accumulation iterations and not just the number of batchs.
-                scheduler.step()
-                optimizer.zero_grad()
+                # scheduler.step()
                 loss_sum += loss.item()
                 total += 1
                 steps_loss = loss_sum / total
                 if verbose > config.valid_every_n_batchs:
                     prompted, expected = validgenerator.prompt()
                     print()
-                    print(f"epoch={epoch + 1}, train loss={steps_loss}, train ppl={10 ** torch.tensor(steps_loss)} lr={optimizer.param_groups[0]['lr']}")
+                    print(f"epoch={epoch + 1}, train loss={steps_loss}, train ppl={10 ** torch.tensor(steps_loss)} lr={optimizer.param_groups[0]['lr']}, radius={model.radius.item()}")
                     print(f"prompted : {validgenerator.decode(prompted)}")
                     print(f"expected : {validgenerator.decode(expected)}")
                     print(f"generated : {nucleus_sampling(model, validgenerator.tokenizer, prompted, device)}")
                     verbose = 0
+                model.zero_grad()
             train_loss = loss_sum / total
-            epoch_info = f"train loss={train_loss}, train ppl={10 ** torch.tensor(train_loss)}, lr={optimizer.param_groups[0]['lr']}"
+            # scheduler taking account only the number of time the parameters are update ... 
+            # that is the accumulation iterations and not just the number of batchs.
+            scheduler.step(train_loss)
+            epoch_info = f"train loss={train_loss}, train ppl={10 ** torch.tensor(train_loss)}, lr={optimizer.param_groups[0]['lr']}, radius={model.radius.item()}"
             epochs_file.write(epoch_info + "\n")
             print()
             print(f"epoch={epoch + 1}, {epoch_info}")

@@ -12,6 +12,15 @@ from torch import nn
 import torch.nn.functional as F
 from torch import Tensor
 
+class FixNorm(nn.Module):
+    """FixNorm"""
+    def __init__(self, radius):
+        super(FixNorm, self).__init__()
+        self.radius = nn.Parameter(torch.ones(1) * radius)
+
+    def forward(self, x):
+        return self.radius * F.normalize(x, dim=-1)
+
 class TransformerLM(nn.Module):
     """
     This class implements a transformer based language model.
@@ -29,7 +38,7 @@ class TransformerLM(nn.Module):
         # decoder = encoder but with masked next tokens
         super().__init__()
         self.fix_norm = config.normalize_word_embeddings
-        self.r = config.radius
+        self.radius = torch.tensor(float(config.radius))
         self.word_embeddings = nn.Parameter(torch.Tensor(config.vocab_size, config.embedding_dims))
         self.position_embeddings = None
         self.pos_padding_idx = config.max_length
@@ -78,25 +87,20 @@ class TransformerLM(nn.Module):
         """
         b, s = x.shape
         device = x.device
-        w_embeddings = (self.r * F.normalize(self.word_embeddings, dim=-1)
-                        if self.fix_norm else self.word_embeddings)
+        w_embeddings = self.radius * F.normalize(self.word_embeddings, dim=-1) if self.fix_norm else self.word_embeddings
         e = F.embedding(input=x, weight=w_embeddings, padding_idx=self.word_padding_idx)
-        mask = None
-        # masking pad indexes
-        if apply_mask:
-            pad_mask = (x == self.word_padding_idx).to(device)
+
         if self.position_embeddings is not None:
             positions = torch.arange(0, s).unsqueeze(0).repeat(b, 1).to(device)
-            if apply_mask:
-                positions[pad_mask] = self.pos_padding_idx
+            pad_positions = (x == self.word_padding_idx).to(device)
+            positions[pad_positions] = self.pos_padding_idx
             p_embeddings = F.embedding(input=positions, weight=self.position_embeddings, padding_idx=self.pos_padding_idx)
             e += p_embeddings
-        if apply_mask:
-            pad_mask = pad_mask.unsqueeze(1).repeat(1, s, 1)
-            # masking future
-            mask = torch.ones(s, s).triu(1).unsqueeze(0).repeat(b, 1, 1).bool().to(device)
-            mask[pad_mask] = True
+        mask = torch.ones(s, s).triu(1).bool().to(device)
         c = self.decoder(e, mask)
+        if self.fix_norm:
+            # fix the norm of the hidden (or contextual) vectors to self.radius too
+            c = self.radius * F.normalize(c, dim=-1)
         if self.linear is None:
             # tied embeddings
             return F.linear(input=c, weight=w_embeddings, bias=self.out_bias)
