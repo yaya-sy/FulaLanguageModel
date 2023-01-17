@@ -56,6 +56,8 @@ class Config:
         Decreases the lr to for many iterations.
     - gradients_accumulation: int
         The number of examples to accumulate
+    - logit: str
+        Type of logic calculation
     """
     vocab_size: int
     tokenizer: str
@@ -68,7 +70,6 @@ class Config:
     norm_clip: float
     pad_idx: Optional[int]
     embedding_dims: int
-    normalize_word_embeddings: bool
     radius: Union[int, float]
     tied_embeddings: bool
     max_length: int
@@ -81,6 +82,7 @@ class Config:
     step_size_up: int
     checkpoint: Optional[str]
     gradients_accumulation: int
+    cosine_sim_logits: str
 
     def to_dict(self) -> Dict[str, Number]:
         """Will return all the parameters as a dictionnary."""

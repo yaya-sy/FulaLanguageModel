@@ -74,7 +74,7 @@ def train(model, traingenerator, validgenerator, device, output_path, config) :
         for epoch in range(last_epoch, last_epoch + config.epochs) :
             loss_sum = 0
             total = 0
-            for batch_idx, (X, Y) in tqdm(enumerate(traingenerator(batch_size=config.batch_size), 1), total=nb_batchs):
+            for (X, Y) in tqdm(traingenerator(batch_size=config.batch_size), total=nb_batchs):
                 X = torch.tensor(X).to(device)
                 Y = torch.tensor(Y).to(device)
                 b, s = X.shape
@@ -83,10 +83,6 @@ def train(model, traingenerator, validgenerator, device, output_path, config) :
                 verbose += 1
                 # accumulate the gradients
                 loss.backward()
-                # if number of gradients accumulations reached then update the parameters
-                if config.gradients_accumulation is not None:
-                    if batch_idx % config.gradients_accumulation != 0 and (nb_batchs - batch_idx) > config.gradients_accumulation:
-                        continue
                 if config.norm_clip is not None:
                     nn.utils.clip_grad_norm_(model.parameters(), max_norm=config.norm_clip) # clip gradient vectors by norm
                 optimizer.step() # update parameters
@@ -97,7 +93,7 @@ def train(model, traingenerator, validgenerator, device, output_path, config) :
                 if verbose > config.valid_every_n_batchs:
                     prompted, expected = validgenerator.prompt()
                     print()
-                    print(f"epoch={epoch + 1}, train loss={steps_loss}, train ppl={10 ** torch.tensor(steps_loss)} lr={optimizer.param_groups[0]['lr']}, radius={model.radius.item()}")
+                    print(f"epoch={epoch + 1}, train loss={steps_loss}, train ppl={10 ** torch.tensor(steps_loss)} lr={optimizer.param_groups[0]['lr']}, radius={model.radius}")
                     print(f"prompted : {validgenerator.decode(prompted)}")
                     print(f"expected : {validgenerator.decode(expected)}")
                     print(f"generated : {nucleus_sampling(model, validgenerator.tokenizer, prompted, device)}")
@@ -107,7 +103,7 @@ def train(model, traingenerator, validgenerator, device, output_path, config) :
             # scheduler taking account only the number of time the parameters are update ... 
             # that is the accumulation iterations and not just the number of batchs.
             scheduler.step(train_loss)
-            epoch_info = f"train loss={train_loss}, train ppl={10 ** torch.tensor(train_loss)}, lr={optimizer.param_groups[0]['lr']}, radius={model.radius.item()}"
+            epoch_info = f"train loss={train_loss}, train ppl={10 ** torch.tensor(train_loss)}, lr={optimizer.param_groups[0]['lr']}, radius={model.radius}"
             epochs_file.write(epoch_info + "\n")
             print()
             print(f"epoch={epoch + 1}, {epoch_info}")

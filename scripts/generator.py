@@ -48,7 +48,7 @@ def nucleus_sampling(model,
         for _ in range(max_predicted_units) :
             if not gen_again :
                 continue
-            logits = model(torch.tensor(gen_idxs).view(1, -1).long().to(device), apply_mask=False)
+            logits = model(torch.tensor(gen_idxs).view(1, -1).long().to(device))
             filtered_logits = top_k_top_p_filtering(logits[0, -1, :] / temperature, top_k=top_k, top_p=top_p)
             probabilities = F.softmax(filtered_logits, dim=-1)
             next_token = torch.multinomial(probabilities, 1)

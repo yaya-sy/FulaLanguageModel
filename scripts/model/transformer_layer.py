@@ -93,6 +93,10 @@ class MultiHeadAttention(nn.Module):
         attention = self.softmax(QK) # shape=[b, h, s, s])
         # for each word, concatenate the attention vectors comming from all the heads.
         out = (attention @ V).view(b, s_q, -1) # [b, s, embedd_dims]
+
+        del K
+        del Q
+        del V
         return self.dropout_mha(out)
 
 class TransformerLayer(nn.Module):

@@ -4,8 +4,8 @@ batch_size: 8
 dev: data/text/fula_nltk_2.txt
 dropout: 0.1
 embedding_dims: 256
-normalize_word_embeddings: true
-radius: 6
+cosine_sim_logits: true
+radius: 2
 tied_embeddings: true
 ff_size: 1024
 heads: 8
@@ -15,10 +15,10 @@ max_lr: 0.01
 norm_clip:
 max_length: 200
 pad_idx: 3
-tokenizer: data/tokenizers/fula_nltk_2_16000.model
+tokenizer: data/tokenizers/fula.model
 train: data/text/fula_nltk_2.txt
 gradients_accumulation: 8
-vocab_size: 16000
+vocab_size: 24000
 valid_every_n_batchs: 2000
 step_size_up: 2000
 checkpoint: 

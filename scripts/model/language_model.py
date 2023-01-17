@@ -37,30 +37,23 @@ class TransformerLM(nn.Module):
     def __init__(self, config):
         # decoder = encoder but with masked next tokens
         super().__init__()
-        self.fix_norm = config.normalize_word_embeddings
-        self.radius = torch.tensor(float(config.radius))
+        self.cosine_sim_logits = config.cosine_sim_logits
+        self.radius = config.radius if config.radius is not None else 1
         self.word_embeddings = nn.Parameter(torch.Tensor(config.vocab_size, config.embedding_dims))
         self.position_embeddings = None
         self.pos_padding_idx = config.max_length
         self.decoder = TransformerEncoder(config=config)
-        self.linear = None
+        # self.project_hidden_states = nn.Linear(in_features=config.embedding_dims, out_features=config.embedding_dims, bias=False)
+        self.w_out = None
         if not config.tied_embeddings:
-            self.linear = nn.Linear(config.embedding_dims, config.vocab_size)
-        else:
-            # bias is a vector 
-            self.out_bias = nn.Parameter(torch.Tensor(config.vocab_size))
-            torch.nn.init.zeros_(self.out_bias)
+            self.w_out = nn.Parameter(torch.Tensor(config.vocab_size, config.embedding_dims))
+            nn.init.normal_(self.w_out, mean=0, std=sqrt(2 / (2 * self.embedding_dims)))
         if config.add_positions:
             self.position_embeddings = nn.Parameter(torch.Tensor(config.max_length + 1, config.embedding_dims))
         self.word_padding_idx: int = config.pad_idx
         self.embedding_dims = config.embedding_dims
         # initializing word embeddings
-        if self.fix_norm:
-            d = 0.01
-            nn.init.uniform_(self.word_embeddings, a=-d, b=d)
-        else:
-            # xavier normal
-            nn.init.normal_(self.word_embeddings, mean=0, std=sqrt(2 / (2 * self.embedding_dims)))
+        nn.init.normal_(self.word_embeddings, mean=0, std=sqrt(2 / (2 * self.embedding_dims)))
         # initializing the rest
         self.apply(self._init_weights)
     
@@ -75,7 +68,7 @@ class TransformerLM(nn.Module):
             torch.nn.init.zeros_(module.bias)
             torch.nn.init.ones_(module.weight)
     
-    def forward(self, x: Tensor, apply_mask=True) -> Tensor:
+    def forward(self, x: Tensor) -> Tensor:
         """
         Forward across all the transformer decoder layers.
 
@@ -87,7 +80,9 @@ class TransformerLM(nn.Module):
         """
         b, s = x.shape
         device = x.device
-        w_embeddings = self.radius * F.normalize(self.word_embeddings, dim=-1) if self.fix_norm else self.word_embeddings
+        # todo: no tied embedding when using similarity logits
+        # also, is'nt weird to normalize the embedding at the net input ?
+        w_embeddings = self.word_embeddings
         e = F.embedding(input=x, weight=w_embeddings, padding_idx=self.word_padding_idx)
 
         if self.position_embeddings is not None:
@@ -98,10 +93,12 @@ class TransformerLM(nn.Module):
             e += p_embeddings
         mask = torch.ones(s, s).triu(1).bool().to(device)
         c = self.decoder(e, mask)
-        if self.fix_norm:
-            # fix the norm of the hidden (or contextual) vectors to self.radius too
+        # c = self.project_hidden_states(c)
+        if self.cosine_sim_logits:
+            # fix the norm of the hidden and embedding vectors to self.radius
+            w_embeddings = self.radius * F.normalize(w_embeddings, dim=-1)
             c = self.radius * F.normalize(c, dim=-1)
-        if self.linear is None:
+        if self.w_out is None:
             # tied embeddings
-            return F.linear(input=c, weight=w_embeddings, bias=self.out_bias)
-        return self.linear(c)
+            return c @ w_embeddings.T
+        return c @ self.w_out.T
